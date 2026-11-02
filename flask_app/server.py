@@ -1,6 +1,4 @@
-# import base64
-# import requests
-###############
+
 from pathlib import Path
 from secrets import token_urlsafe
 from threading import Lock
@@ -9,6 +7,10 @@ from time import perf_counter, monotonic
 import cv2
 import numpy as np
 from flask import Flask, jsonify, render_template, request
+
+# VLM scene description:
+# import base64
+# import requests
 
 
 BASE = Path(__file__).resolve().parents[1]
@@ -30,13 +32,13 @@ reconnaisseur = cv2.FaceRecognizerSF.create(
 )
 
 verrou = Lock()
-# verrou_vlm = Lock()
-###############
 sessions = {}
 
+# verrou_vlm = Lock()
 
 def nettoyer_sessions():
     maintenant = monotonic()
+    
     for token in list(sessions):
         if maintenant - sessions[token]["dernier"] > DUREE_SESSION:
             del sessions[token]
@@ -44,20 +46,23 @@ def nettoyer_sessions():
 
 def lire_image(fichier):
     if fichier is None:
-        raise ValueError("Image manquante.")
+        raise ValueError("Please upload a photo.")
 
     image = cv2.imdecode(
         np.frombuffer(fichier.read(), dtype=np.uint8),
         cv2.IMREAD_COLOR,
     )
     if image is None:
-        raise ValueError("Image illisible.")
+        raise ValueError("Could not open this photo.")
 
     h, w = image.shape[:2]
     facteur = min(1.0, 640 / max(h, w))
+    
     if facteur < 1:
         image = cv2.resize(
-            image, None, fx=facteur, fy=facteur,
+            image, None, 
+            fx=facteur, 
+            fy=facteur,
             interpolation=cv2.INTER_AREA,
         )
     return image
@@ -67,12 +72,14 @@ def detecter(image):
     h, w = image.shape[:2]
     detecteur.setInputSize((w, h))
     _, visages = detecteur.detect(image)
+    
     return visages
 
 
 def extraire(image, visage):
     aligne = reconnaisseur.alignCrop(image, visage)
     embedding = reconnaisseur.feature(aligne).copy()
+    
     if not np.isfinite(embedding).all():
         raise ValueError("Embedding invalide.")
     return aligne, embedding
@@ -91,20 +98,25 @@ def reference():
         nettoyer_sessions()
 
         visages = detecter(image)
+        
         if visages is None or len(visages) != 1:
-            raise ValueError("Choisissez une référence avec un seul visage.")
+            raise ValueError("Use a photo with just one face.")
 
         _, embedding = extraire(image, visages[0])
 
-        # Remplacer la précédente référence de ce navigateur.
+        # Replace this browser's previous photo.
         ancien = request.form.get("token")
+        
         if ancien:
             sessions.pop(ancien, None)
 
         if len(sessions) >= 16:
-            return jsonify(error="Trop de sessions actives."), 503
+            return jsonify(
+                error="Trop de sessions actives."
+            ), 503
 
         token = token_urlsafe(24)
+        
         sessions[token] = {
             "embedding": embedding,
             "compteur": 0,
@@ -118,8 +130,10 @@ def reference():
 def reset():
     with verrou:
         session = sessions.get(request.form.get("token"))
+        
         if session:
             session["compteur"] = 0
+    
     return jsonify(ok=True)
 
 
@@ -133,16 +147,18 @@ def analyser():
         session = sessions.get(request.form.get("token"))
 
         if session is None:
-            return jsonify(error="Réimportez la référence : session expirée."), 400
+            return jsonify(error="session expired."), 400
 
         maintenant = monotonic()
+        
         if maintenant - session["dernier"] > 2:
             session["compteur"] = 0
+        
         session["dernier"] = maintenant
 
         resultat = {
             "status": "denied",
-            "message": "Aucun visage détecté",
+            "message": "No face detected",
             "score": None,
             "box": None,
             "count": 0,
@@ -157,14 +173,14 @@ def analyser():
 
         elif len(visages) > 1:
             session["compteur"] = 0
-            resultat["message"] = "Plusieurs visages détectés"
+            resultat["message"] = "Several faces detected"
 
         else:
             visage = visages[0]
             x, y, w, h = map(float, visage[:4])
             ih, iw = image.shape[:2]
 
-            # Coordonnées normalisées pour le cadre dans le navigateur.
+            
             resultat["box"] = [x / iw, y / ih, w / iw, h / ih]
 
             if min(w, h) < TAILLE_MIN:
@@ -182,16 +198,18 @@ def analyser():
                     session["compteur"] = 0
                     resultat.update(
                         status="waiting",
-                        message="Image floue : stabilisez votre visage",
+                        message="hold still. The photo is blurry",
                     )
                 else:
-                    score = float(reconnaisseur.match(
+                    score = float(
+                        reconnaisseur.match(
                         session["embedding"].copy(),
                         embedding,
                         cv2.FaceRecognizerSF_FR_COSINE,
-                    ))
+                        )
+                    )
                     if not np.isfinite(score):
-                        raise ValueError("Score invalide.")
+                        raise ValueError("could not compare the faces.Try again.")
 
                     session["compteur"] = (
                         min(session["compteur"] + 1, VALIDATIONS)
@@ -208,7 +226,7 @@ def analyser():
                         ),
                         message=(
                             "Face matched" if accepte
-                            else "Checking your face…" if score >= SEUIL
+                            else "Checking…" if score >= SEUIL
                             else "No match found"
                         ),
                     )
@@ -228,15 +246,15 @@ def erreur_entree(erreur):
 
 @app.errorhandler(cv2.error)
 def erreur_opencv(erreur):
-    app.logger.exception("Erreur OpenCV")
-    return jsonify(error="Erreur d’analyse de l’image."), 500
+    app.logger.exception("OpenCV error")
+    return jsonify(error="Error occurred while processing the image."), 500
 
 
 @app.errorhandler(413)
 def fichier_trop_grand(erreur):
-    return jsonify(error="Image trop volumineuse : maximum 8 Mo."), 413
+    return jsonify(error="Image too large : maximum 8 MB."), 413
 
-###########################
+########VLM scene description###### 
 # @app.post("/api/describe")
 # def decrire_scene():
 #     image = lire_image(request.files.get("image"))
@@ -316,5 +334,10 @@ def fichier_trop_grand(erreur):
 #         verrou_vlm.release()
 ###########################
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=False, threaded=True)
+    app.run(
+        host="127.0.0.1", 
+        port=5000, 
+        debug=False, 
+        threaded=True,
+    )
     
