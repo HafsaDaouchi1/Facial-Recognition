@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FaceMatch — Facial Verification</title>
+  <link rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}?v=4">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">FACEMATCH</p>
+        <h1>Facial Recognition</h1>
+        <p class="subtitle">
+          Compare your face with a reference image in real time.
+        </p>
+      </div>
+     
+    </header>
+
+    <section class="layout">
+      <article class="panel capture">
+        <div class="panel-header">
+          <h2><span class="live">LIVE</span> Capture Area</h2>
+          <span class="muted">CAM-01</span>
+        </div>
+
+        <div class="viewport">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+
+  <div id="placeholder">
+    <svg class="face-guide"
+         viewBox="0 0 240 280"
+         fill="none"
+         aria-hidden="true">
+
+      <!-- Contour extérieur -->
+      <path
+        d="M120 20
+           C66 20 32 59 32 112
+           C32 172 51 250 88 254
+           L152 254
+           C189 250 208 172 208 112
+           C208 59 174 20 120 20Z"
+        fill="rgba(149,124,255,0.06)"
+        stroke="#8270bf"
+        stroke-width="1"
+      />
+
+      <!-- Visage -->
+      <ellipse
+        cx="120" cy="102" rx="39" ry="47"
+        stroke="#9683d2"
+        stroke-width="1"
+      />
+
+      <!-- Yeux -->
+      <path
+        d="M98 103 H102 M138 103 H142"
+        stroke="#ac93ff"
+        stroke-width="4"
+        stroke-linecap="round"
+      />
+
+      <!-- Épaules -->
+      <path
+        d="M54 247
+           V218
+           C54 175 82 147 120 147
+           C158 147 186 175 186 218
+           V247"
+        stroke="#8270bf"
+        stroke-width="1"
+      />
+    </svg>
+
+    <p>Position your face inside the frame</p>
+  </div>
+
+  <span class="corner tl"></span>
+  <span class="corner tr"></span>
+  <span class="corner bl"></span>
+  <span class="corner br"></span>
+
+
+</div>
+
+        <div class="actions">
+          <label class="button secondary">
+            Upload Reference
+            <input id="upload" type="file"
+                   accept="image/jpeg,image/png" hidden>
+          </label>
+          <button id="start" disabled>Start Scan</button>
+          <button id="stop" class="secondary" disabled>Stop</button>
+        </div>
+
+        <p id="notice" role="status">
+          Upload a reference image to get started.
+        </p>
+      </article>
+
+      <aside class="panel result" id="result" data-status="idle">
+        <p class="eyebrow">ANALYSIS RESULT</p>
+
+        <div class="result-title">
+          <h2 id="title">Ready to Analyze</h2>
+          <span id="status-icon">◎</span>
+        </div>
+
+        <div class="score-section">
+          <span class="muted">Face Similarity</span>
+
+          <div id="score">—</div>
+          <p id="message">Results will appear during the scan.</p>
+        </div>
+
+        <div class="identity">
+          <img id="preview" alt="Uploaded reference" hidden>
+          <div>
+            <strong>Reference Image</strong>
+           <p id="reference-status">No reference loaded</p>
+          </div>
+        </div>
+
+        <dl>
+          <div>
+            <dt>Match Threshold</dt>
+            <dd>50%</dd>
+          </div>
+          <div>
+            <dt>Temporal Validation</dt>
+            <dd id="count">0 / 5</dd>
+          </div>
+          <div>
+            <dt>Server Analysis Time</dt>
+            <dd id="latency">—</dd>
+          </div>
+        </dl>
+<!--  
+         <section class="visual-assistant">
+          <div class="assistant-header">
+            <strong>Visual Assistant</strong>
+            <span class="assistant-tag">VLM</span>
+          </div>
+
+          <button id="describe" class="secondary" type="button">
+            Describe Live Scene
+          </button>
+
+          <p id="description" role="status">
+            Start the camera, then click Describe Scene.
+          </p>
+        </section> -->
+<!-- cmt -->
+      </aside>
+    </section>
+
+    
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
